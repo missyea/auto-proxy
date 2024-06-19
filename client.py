@@ -11,7 +11,7 @@ def get_received_ip(api_host, api_path):
         if response.status == 200:
             data = response.read()
             json_data = json.loads(data)
-            received_ip = json_data.get('received_ip')
+            received_ip = json_data.get('ip')
             conn.close()
             return received_ip
         else:
@@ -64,7 +64,7 @@ def restart_service(service_name):
         print(e.stderr)
 
 def main():
-    api_host = '10.211.55.2:5000'
+    api_host = '10.10.10.188:5000'
     api_path = '/get_ip'
     file_path = '/usr/local/etc/xray/config.json'
     service_name = 'xray'

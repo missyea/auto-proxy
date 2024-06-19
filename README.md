@@ -7,13 +7,11 @@ systemctl edit xray
 [Service]
 Group=proxy
 
-apt install iptables-persistent
-netfilter-persistent save
-
 install config.json /usr/local/etc/xray
 chmod o+wr /usr/local/etc/xray/config.json
 systemctl restart xray
 
+install custom-route /etc/NetworkManager/dispatcher.d/pre-up.d
 install client.py tproxy.sh /usr/local/bin
 install -m 644 tproxy.service /etc/systemd/system
 systemctl enable tproxy

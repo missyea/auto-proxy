@@ -1,0 +1,9 @@
+#!/bin/sh
+
+if ! ip rule show table 100 | grep -q "fwmark 0x1 lookup 100"; then
+    ip rule add fwmark 1 table 100
+fi
+
+if ! ip route show table 100 | grep -q "local default dev lo"; then
+    ip route add local default dev lo table 100
+fi

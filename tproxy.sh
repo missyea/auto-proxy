@@ -1,7 +1,4 @@
-#!/bin/bash
-
-ip rule add fwmark 1 table 100
-ip route add local default dev lo table 100
+#!/bin/sh
 
 # PREROUTING
 iptables -t mangle -N XRAY
