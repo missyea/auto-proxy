@@ -16,4 +16,7 @@ install client.py tproxy.sh /usr/local/bin
 install -m 644 tproxy.service /etc/systemd/system
 systemctl enable tproxy
 
+Setttings > Power > Screen Blank - Never
+Setttings > Displays > Resolution - 1920 x 1080
+
 curl -X POST http://localhost:5000/set_ip -H 'Content-Type: application/json' -d '{"ip": "54.193.188.38"}'
