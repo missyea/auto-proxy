@@ -207,7 +207,7 @@ def get_running_vm_ip(name):
 
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
-        if self.path == '/set_ip':
+        if self.path == '/set_vm':
             try:
                 content_length = int(self.headers['Content-Length'])
                 post_data = self.rfile.read(content_length)
@@ -221,7 +221,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json; charset=utf-8')
                 self.end_headers()
-                response = {'status': '已接收到 IP'}
+                response = {'status': 200}
                 self.wfile.write(json.dumps(response, ensure_ascii=False).encode('utf-8'))
 
                 # 如果接收到 IP，则克隆并启动虚拟机
