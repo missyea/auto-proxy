@@ -1,6 +1,8 @@
 import http.client
 import json
 import subprocess
+import time
+
 
 def get_received_ip(api_host, api_path):
     try:
@@ -64,21 +66,33 @@ def restart_service(service_name):
         print(e.stderr)
 
 def main():
-    api_host = '10.10.10.188:5000'
+    api_host = '192.168.0.231:5000'
     api_path = '/get_ip'
     file_path = '/usr/local/etc/xray/config.json'
     service_name = 'xray'
 
+    MAX_RETRIES = 30
+    RETRY_INTERVAL = 10
+
+    retries = 0
+
     if is_address_empty(file_path):
         print("address 为空，需要更新。")
-        received_ip = get_received_ip(api_host, api_path)
 
-        if received_ip:
-            print(f"成功获取 received_ip: {received_ip}")
-            update_json_file(file_path, received_ip)
-            restart_service(service_name)
-        else:
+        while retries < MAX_RETRIES:
+            received_ip = get_received_ip(api_host, api_path)
+
+            if received_ip:
+                print(f"成功获取 received_ip: {received_ip}")
+                update_json_file(file_path, received_ip)
+                restart_service(service_name)
+                break
+
             print("未能获取到有效的 received_ip")
+            retries += 1
+            if retries < MAX_RETRIES:
+                time.sleep(RETRY_INTERVAL)
+
     else:
         print("address 已有值，无需更新。")
 
