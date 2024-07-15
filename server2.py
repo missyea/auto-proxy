@@ -4,8 +4,10 @@ import http.client
 import json
 import base64
 import os
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qs
+
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -56,7 +58,7 @@ class VMwareServerParams():
 if vm == 'VMware Workstation Pro':
     global vmsp
     vmsp = VMwareServerParams()
-    conn = http.client.HTTPConnection(vmsp.host)
+    # conn = http.client.HTTPConnection(vmsp.host)
     # conn.request("GET", "/api/vms",headers=vmsp.headers)
     # response = conn.getresponse()
     # print(vmsp.check_response(response))
@@ -216,93 +218,62 @@ def get_running_vm_ip(name):
     elif vm == "VMware Workstation Pro":
         return _get_running_vm_ip_2(name)
 
-class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
-    def do_POST(self): 
-        def respond_with_success():
-            self.send_response(204)
-            self.end_headers()
+app = Flask(__name__)
+CORS(app)
 
-        try:
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            data = json.loads(post_data)
-            received_ip = data.get('ip', None)
 
-            if received_ip is None:
-                self.send_error(422)
-                logger.warning(f"解析 JSON 数据时发生错误: 未收到有效的 IP 地址")
-                return
+@app.route('/set_vm', methods=['POST'])
+def set_vm():
+    received_ip = request.form.get('ip')
 
-            if self.path == '/set_vm':
-                respond_with_success()
-                clone_vm(received_ip)
+    if not received_ip:
+        logger.warning("解析 JSON 数据时发生错误: 未收到有效的 IP 地址")
+        return ('', 422)
 
-            elif self.path == '/reset_vm':
-                respond_with_success()
-                reset_vm(received_ip)
+    clone_vm(received_ip)
+    return 'True'
 
-            elif self.path == '/delete_vm':
-                respond_with_success()
-                delete_vm(received_ip)
+@app.route('/reset_vm', methods=['POST'])
+def reset_vm_endpoint():
+    received_ip = request.form.get('ip')
 
-            else:
-                self.send_error(404)
+    if not received_ip:
+        logger.warning("解析 JSON 数据时发生错误: 未收到有效的 IP 地址")
+        return ('', 422)
 
-        except Exception as e:
-            logger.error(f"处理 POST 请求时发生异常: {e}")
-            self.send_error(500)
+    reset_vm(received_ip)
+    return 'True'
 
-    def do_GET(self):
+@app.route('/delete_vm', methods=['POST'])
+def delete_vm_endpoint():
+    received_ip = request.form.get('ip')
 
-        def respond_with_success():
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json; charset=utf-8')
-            self.send_header('Access-Control-Allow-Origin', '*')
-            self.end_headers()
-            self.wfile.write(json.dumps(response, ensure_ascii=False).encode())
+    if not received_ip:
+        logger.warning("解析 JSON 数据时发生错误: 未收到有效的 IP 地址")
+        return ('', 422)
 
-        try:
-            if self.path == '/get_ip':
-                client_ip = self.client_address[0]
+    delete_vm(received_ip)
+    return 'True'
 
-                vm_name = get_running_vm_name(client_ip)
+@app.route('/get_ip', methods=['GET'])
+def get_ip():
+    client_ip = request.remote_addr
+    vm_name = get_running_vm_name(client_ip)
 
-                if vm_name:
-                    response = {'ip': vm_name}
-                else:
-                    response = {'error': '未找到匹配 IP 的运行中虚拟机'}
+    if vm_name:
+        return jsonify({'ip': vm_name})
+    else:
+        return jsonify({'error': '未找到匹配 IP 的运行中虚拟机'}), 404
 
-                respond_with_success()
+@app.route('/get_vm_ip', methods=['GET'])
+def get_vm_ip():
+    client_name = request.args.get('ip')
+    vm_ip = get_running_vm_ip(client_name)
 
-            elif self.path.startswith('/get_vm_ip'):
-                parsed_path = urlparse(self.path)
-                query_params = parse_qs(parsed_path.query)
-                client_name = query_params.get('ip', [None])[0]
-
-                vm_ip = get_running_vm_ip(client_name)
-
-                if vm_ip:
-                    response = {'ip': vm_ip}
-                else:
-                    response = {'error': '未找到匹配 NAME 的运行中虚拟机'}
-
-                respond_with_success()
-
-            else:
-                self.send_error(404)
-
-        except Exception as e:
-            logger.error(f"处理 GET 请求时发生异常: {e}")
-            self.send_error(500)
-
-def run(server_class=HTTPServer, handler_class=SimpleHTTPRequestHandler, port=5000):
-    try:
-        server_address = ('', port)
-        httpd = server_class(server_address, handler_class)
-        logger.info(f'正在启动服务器，端口号 {port}...')
-        httpd.serve_forever()
-    except OSError as e:
-        logger.error(f"启动服务器时发生错误: {e}")
+    if vm_ip:
+        return jsonify({'ip': vm_ip})
+    else:
+        return jsonify({'error': '未找到匹配 NAME 的运行中虚拟机'}), 404
 
 if __name__ == '__main__':
-    run()
+    app.run(host='0.0.0.0', port=5000)
