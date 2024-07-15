@@ -19,5 +19,4 @@ systemctl enable tproxy
 Setttings > Power > Screen Blank - Never
 Setttings > Displays > Resolution - 1920 x 1080
 
-curl -X POST http://localhost:5000/set_vm -d '{"ip": "54.193.188.38"}'
-curl -X POST http://localhost:5000/set_vm -d "{\"ip\": \"54.193.188.38\"}"
+curl -X POST http://localhost:5000/set_vm -F "ip=54.193.188.38"

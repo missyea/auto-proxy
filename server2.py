@@ -154,11 +154,11 @@ def _get_running_vm_name_1(ip):
 
 def _get_running_vm_name_2(ip):
     try:
-        vm_list = subprocess.run(['vmrun', 'list'], shell=True, check=True, capture_output=True, text=True, encoding="utf-8").stdout.splitlines()[1:]
+        vm_list = subprocess.run(['vmrun', 'list'], shell=True, check=True, capture_output=True, text=True, encoding="utf-8", timeout=5).stdout.splitlines()[1:]
 
         for vm in vm_list:
             try:
-                guest_ip = subprocess.run(['vmrun', 'getGuestIPAddress', vm], shell=True, check=True, capture_output=True, text=True, encoding="utf-8").stdout.strip()
+                guest_ip = subprocess.run(['vmrun', 'getGuestIPAddress', vm], shell=True, check=True, capture_output=True, text=True, encoding="utf-8", timeout=5).stdout.strip()
                 if guest_ip == ip:
                     vm_path = os.path.dirname(vm)
                     vm_name = os.path.basename(vm_path)
@@ -172,8 +172,8 @@ def _get_running_vm_name_2(ip):
         
         return None
     except subprocess.CalledProcessError as e:
-        logger.error(f"执行 vmrun 命令时发生错误: {e}")
-        raise
+        logger.info(f"执行 list 命令时发生错误: {e}")
+        return None
 
 def get_running_vm_name(ip):
     if vm == "Parallels Desktop":
@@ -204,13 +204,16 @@ def _get_running_vm_ip_1(name):
 def _get_running_vm_ip_2(name):
     try:
         vm_path = os.path.join(vmsp.workdir, name, f"{name}.vmx")
-        guest_ip = subprocess.run(['vmrun', 'getGuestIPAddress', vm_path], shell=True, check=True, capture_output=True, text=True, encoding="utf-8").stdout.strip()
-        return guest_ip
+        guest_ip = subprocess.run(['vmrun', 'getGuestIPAddress', vm_path], shell=True, check=True, capture_output=True, text=True, encoding="utf-8", timeout=5).stdout.strip()
+        if guest_ip != 'unknown':
+            return guest_ip
+        else:
+            return None
     except subprocess.CalledProcessError as e:
         return None
     except Exception as e:
         logger.error(f"获取虚拟机 IP 地址时发生错误: {e}")
-        raise
+        return None
 
 def get_running_vm_ip(name):
     if vm == "Parallels Desktop":
@@ -221,7 +224,6 @@ def get_running_vm_ip(name):
 app = Flask(__name__)
 CORS(app)
 
-
 @app.route('/set_vm', methods=['POST'])
 def set_vm():
     received_ip = request.form.get('ip')
@@ -231,7 +233,7 @@ def set_vm():
         return ('', 422)
 
     clone_vm(received_ip)
-    return 'True'
+    return jsonify({'status': 200})
 
 @app.route('/reset_vm', methods=['POST'])
 def reset_vm_endpoint():
@@ -242,7 +244,7 @@ def reset_vm_endpoint():
         return ('', 422)
 
     reset_vm(received_ip)
-    return 'True'
+    return jsonify({'status': 200})
 
 @app.route('/delete_vm', methods=['POST'])
 def delete_vm_endpoint():
@@ -253,7 +255,7 @@ def delete_vm_endpoint():
         return ('', 422)
 
     delete_vm(received_ip)
-    return 'True'
+    return jsonify({'status': 200})
 
 @app.route('/get_ip', methods=['GET'])
 def get_ip():
