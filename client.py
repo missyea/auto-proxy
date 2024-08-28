@@ -3,7 +3,6 @@ import json
 import subprocess
 import time
 
-
 def get_received_ip(api_host, api_path):
     try:
         conn = http.client.HTTPConnection(api_host)
@@ -66,7 +65,7 @@ def restart_service(service_name):
         print(e.stderr)
 
 def main():
-    api_host = '192.168.0.231:5000'
+    api_host = '192.168.0.105:5000'
     api_path = '/get_ip'
     file_path = '/usr/local/etc/xray/config.json'
     service_name = 'xray'
