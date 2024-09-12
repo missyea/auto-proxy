@@ -16,7 +16,7 @@ import (
 
 const (
 	settingsPath = `Software\Microsoft\Windows\CurrentVersion\Internet Settings`
-	maxAttempts  = 30
+	maxAttempts  = 60
 	delay        = 5 * time.Second
 )
 
