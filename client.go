@@ -17,7 +17,7 @@ import (
 const (
 	settingsPath = `Software\Microsoft\Windows\CurrentVersion\Internet Settings`
 	maxAttempts  = 30
-	delay        = 10 * time.Second
+	delay        = 5 * time.Second
 )
 
 func getIPFromAPI() (string, error) {

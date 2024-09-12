@@ -32,7 +32,7 @@ class VMwareServerParams():
         }
 
         self.workdir = "D:\\Virtual Machines"
-        self.template_vm_name = "template"
+        self.template_vm_name = "Windows Server 2022"
         self.template_vm_path = os.path.join(self.workdir, self.template_vm_name, f"{self.template_vm_name}.vmx")
 
     def check_response(self,response):
@@ -66,17 +66,16 @@ if vm == 'VMware Workstation Pro':
 
 def _clone_vm_1(ip):
     new_vm_name = ip
-    template_vm_name = "template"
 
     status = subprocess.call(['prlctl', 'status', new_vm_name])
 
     if status == 255: 
-        template_status = subprocess.check_output(['prlctl', 'status', template_vm_name]).decode('ascii')
+        template_status = subprocess.check_output(['prlctl', 'status', vmsp.template_vm_name]).decode('ascii')
 
         if 'stopped' not in template_status:
-            subprocess.call(['prlctl', 'stop', template_vm_name, "--drop-state"])
+            subprocess.call(['prlctl', 'stop', vmsp.template_vm_name, "--drop-state"])
         
-        subprocess.call(['prlctl', 'clone', template_vm_name, '--name', new_vm_name])
+        subprocess.call(['prlctl', 'clone', vmsp.template_vm_name, '--name', new_vm_name])
         logger.info(f"虚拟机 {new_vm_name} 克隆成功")
 
     subprocess.call(['prlctl', 'start', new_vm_name])
@@ -163,7 +162,7 @@ def _get_running_vm_name_2(ip):
                     vm_path = os.path.dirname(vm)
                     vm_name = os.path.basename(vm_path)
                     logger.info(f"虚拟机 {vm_name} 已就绪")
-                    if vm_name == 'template':
+                    if vm_name == vmsp.template_vm_name:
                         continue
                     ip_address = vm_name
                     return ip_address
