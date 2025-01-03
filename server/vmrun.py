@@ -135,10 +135,3 @@ class VMwareWorkstationSDK:
         if snapshot_name:
             args.append(f"-snapshot={snapshot_name}")
         return self._run_command(*args)
-
-
-# Example usage:
-# sdk = VMwareWorkstationSDK()
-# sdk.start("/path/to/vm.vmx")
-# sdk.run_program_in_guest("/path/to/vm.vmx", "/bin/ls", "-l")
-# sdk.stop("/path/to/vm.vmx")

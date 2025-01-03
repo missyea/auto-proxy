@@ -1,47 +1,38 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, List
 from vmrun import VMwareWorkstationSDK
-from config import WORKDIR, TEMPLATE_VM_NAME, USER, PASSWORD
-
-import logging
-import subprocess
-import json
-import base64
+from hyperv import HyperVSDK
+from config import WORKDIR, TEMPLATE_VM_NAME
 import os
 import re
-
-logger = logging.getLogger(__name__)
-
-vmrun = VMwareWorkstationSDK()
 
 
 class VMManager(ABC):
     @abstractmethod
-    def clone_vm(self, ip: str) -> None:
+    def clone_vm(self, ip):
         pass
 
     @abstractmethod
-    def reset_vm(self, ip: str) -> None:
+    def reset_vm(self, ip):
         pass
 
     @abstractmethod
-    def stop_vm(self, ip: str) -> None:
+    def stop_vm(self, ip):
         pass
 
     @abstractmethod
-    def delete_vm(self, ip: str) -> None:
+    def delete_vm(self, ip):
         pass
 
     @abstractmethod
-    def get_running_vm_name(self, ip: str) -> Optional[str]:
+    def get_running_vm_name(self, ip):
         pass
 
     @abstractmethod
-    def get_running_vm_ip(self, name: str) -> Optional[str]:
+    def get_running_vm_ip(self, name):
         pass
 
     @abstractmethod
-    def get_vm_list(self) -> List[str]:
+    def get_vm_list(self):
         pass
 
 
@@ -52,112 +43,83 @@ class VMwareManager(VMManager):
         self.template_vm_path = os.path.join(
             self.workdir, self.template_vm_name, f"{self.template_vm_name}.vmx"
         )
-        self.headers = self._get_headers()
+        self.vmrun = VMwareWorkstationSDK()
 
-    def _get_headers(self) -> Dict[str, str]:
-        auth_string = base64.b64encode(f"{USER}:{PASSWORD}".encode("ascii"))
-        return {
-            "Authorization": f"Basic {auth_string.decode('ascii')}",
-            "Content-type": "application/vnd.vmware.vmw.rest-v1+json",
-            "Accept": "application/vnd.vmware.vmw.rest-v1+json",
-        }
-
-    def _run_vmware_command(
-        self, command: str, *args: str, check: bool = True
-    ) -> subprocess.CompletedProcess:
-        full_command = ["vmrun", command, *args]
-        return subprocess.run(
-            full_command,
-            shell=True,
-            check=check,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
-
-    def clone_vm(self, ip: str) -> None:
+    def clone_vm(self, ip):
         new_vm_name = ip
         new_vm_path = os.path.join(self.workdir, new_vm_name, f"{new_vm_name}.vmx")
 
         try:
-            self._run_vmware_command("stop", self.template_vm_path, "hard")
-            logger.info(f"Template VM '{self.template_vm_name}' stopped successfully")
-        except subprocess.CalledProcessError:
-            logger.info(f"Template VM '{self.template_vm_name}' was not running")
+            try:
+                self.vmrun.stop(self.template_vm_path, mode="hard")
+            except Exception:
+                pass
 
-        tools_state = self._run_vmware_command(
-            "checkToolsState", new_vm_path, check=False
-        ).stdout.strip()
-        if "installed" in tools_state.lower():
-            logger.info(f"VM {new_vm_name} already exists")
-        elif "running" in tools_state.lower():
-            logger.info(f"VM {new_vm_name} is already running")
-            return
-        else:
-            clone_cmd = [
-                "clone",
-                self.template_vm_path,
-                new_vm_path,
-                "full",
-                f"-cloneName={new_vm_name}",
-            ]
-            self._run_vmware_command(*clone_cmd)
-            logger.info(f"VM {new_vm_name} cloned successfully")
+            try:
+                tools_state = self.vmrun.check_tools_state(new_vm_path)
+                if "installed" in tools_state.lower():
+                    return
+                elif "running" in tools_state.lower():
+                    return
+            except Exception:
+                self.vmrun.clone(
+                    self.template_vm_path,
+                    new_vm_path,
+                    full=True,
+                    clone_name=new_vm_name
+                )
 
-        # self._run_vmware_command("start", new_vm_path)
-        vmrun.start(new_vm_path, False)
-        logger.info(f"VM {new_vm_name} started successfully")
+            self.vmrun.start(new_vm_path, gui=False)
+        except Exception:
+            raise
 
-    def reset_vm(self, ip: str) -> None:
+    def reset_vm(self, ip):
         vm_path = self._get_vm_path(ip)
-        vmrun.stop(vm_path)
-        vmrun.start(vm_path, False)
-        logger.info(f"VM {ip} has been reset")
+        self.vmrun.stop(vm_path)
+        self.vmrun.start(vm_path, gui=False)
 
-    def stop_vm(self, ip: str) -> None:
+    def stop_vm(self, ip):
         try:
             vm_path = self._get_vm_path(ip)
-            vmrun.stop(vm_path)
-            logger.info(f"VM {ip} has been stop")
+            self.vmrun.stop(vm_path)
         except Exception:
-            logger.info(f"VM '{ip}' was not running")
+            pass
 
-    def delete_vm(self, ip: str) -> None:
-        vm_path = self._get_vm_path(ip)
-        self._run_vmware_command("stop", vm_path, "hard", check=False)
-        self._run_vmware_command("deleteVM", vm_path, check=False)
-        logger.info(f"VM {ip} has been deleted")
+    def delete_vm(self, ip):
+        try:
+            vm_path = self._get_vm_path(ip)
+            try:
+                self.vmrun.stop(vm_path, mode="hard")
+            except Exception:
+                pass
+            self.vmrun.delete_vm(vm_path)
+        except Exception:
+            pass
 
-    def get_running_vm_name(self, ip: str) -> Optional[str]:
-        vm_list = self._run_vmware_command("list").stdout.splitlines()[1:]
+    def get_running_vm_name(self, ip):
+        vm_list = self.vmrun.list().splitlines()[1:]
         for vm in vm_list:
             try:
-                guest_ip = self._run_vmware_command(
-                    "getGuestIPAddress", vm
-                ).stdout.strip()
+                guest_ip = self.vmrun.get_guest_ip_address(vm)
                 if guest_ip == ip:
                     vm_path = os.path.dirname(vm)
                     vm_name = os.path.basename(vm_path)
                     if vm_name != self.template_vm_name:
-                        logger.info(f"VM {vm_name} is ready")
                         return vm_name
-            except subprocess.CalledProcessError:
+            except Exception:
                 continue
         return None
 
-    def get_running_vm_ip(self, name: str) -> Optional[str]:
+    def get_running_vm_ip(self, name):
         vm_path = self._get_vm_path(name)
         try:
-            guest_ip = vmrun.get_guest_ip_address(vm_path)
+            guest_ip = self.vmrun.get_guest_ip_address(vm_path)
             return guest_ip if guest_ip != "unknown" else None
-        except subprocess.CalledProcessError:
-            return None
-        except Exception as e:
+        except Exception:
             return None
 
-    def get_vm_list(self) -> List[str]:
+    def get_vm_list(self):
         try:
-
             vm_directories = [
                 d
                 for d in os.listdir(self.workdir)
@@ -165,9 +127,10 @@ class VMwareManager(VMManager):
                 and re.match(r"^\d+\.\d+\.\d+\.\d+$", d)
             ]
 
-            running_vms = vmrun.list().splitlines()[1:]
+            running_vms = self.vmrun.list().splitlines()[1:]
             running_ips = [
-                os.path.basename(os.path.dirname(vm_path)) for vm_path in running_vms
+                os.path.basename(os.path.dirname(vm_path))
+                for vm_path in running_vms
             ]
 
             vm_list = []
@@ -176,74 +139,77 @@ class VMwareManager(VMManager):
                 vm_list.append({"ip": vm_name, "running": is_running})
 
             return vm_list
-
-        except Exception as e:
-            print(f"An error occurred: {e}")
+        except Exception:
             return []
 
-    def _get_vm_path(self, name: str) -> str:
+    def _get_vm_path(self, name):
         return os.path.join(self.workdir, name, f"{name}.vmx")
 
 
-class ParallelsManager(VMManager):
+class HyperVManager(VMManager):
     def __init__(self):
+        self.workdir = WORKDIR
         self.template_vm_name = TEMPLATE_VM_NAME
+        self.hyperv = HyperVSDK()
 
-    def _run_parallels_command(self, *args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            ["prlctl", *args],
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-        )
-
-    def clone_vm(self, ip: str) -> None:
+    def clone_vm(self, ip):
         new_vm_name = ip
-        status = subprocess.call(["prlctl", "status", new_vm_name])
-
-        if status == 255:
-            template_status = self._run_parallels_command(
-                "status", self.template_vm_name
-            ).stdout
-            if "stopped" not in template_status:
-                self._run_parallels_command(
-                    "stop", self.template_vm_name, "--drop-state"
-                )
-
-            self._run_parallels_command(
-                "clone", self.template_vm_name, "--name", new_vm_name
+        try:
+            vm_exists = self.hyperv.exists(new_vm_name)
+            if vm_exists:
+                is_running = self.hyperv.is_running(new_vm_name)
+                if not is_running:
+                    self.hyperv.start(new_vm_name)
+                return
+            
+            self.hyperv.clone(
+                template_name=self.template_vm_name,
+                new_name=new_vm_name,
+                path=self.workdir
             )
-            logger.info(f"VM {new_vm_name} cloned successfully")
+            self.hyperv.start(new_vm_name)
+        except Exception:
+            raise
 
-        self._run_parallels_command("start", new_vm_name)
+    def reset_vm(self, ip):
+        try:
+            self.hyperv.reset(ip)
+        except Exception:
+            raise
 
-    def reset_vm(self, ip: str) -> None:
-        self._run_parallels_command("reset", ip)
-        logger.info(f"VM {ip} has been reset")
+    def stop_vm(self, ip):
+        try:
+            if self.hyperv.is_running(ip):
+                self.hyperv.stop(ip)
+        except Exception:
+            pass
 
-    def delete_vm(self, ip: str) -> None:
-        self._run_parallels_command("delete", ip)
-        logger.info(f"VM {ip} has been deleted")
+    def delete_vm(self, ip):
+        try:
+            self.hyperv.delete(ip, path=self.workdir)
+        except Exception:
+            pass
 
-    def get_running_vm_name(self, ip: str) -> Optional[str]:
-        output = self._run_parallels_command("list", "-f", "-j").stdout
-        vm_list = json.loads(output)
+    def get_running_vm_name(self, ip):
+        try:
+            vm = self.hyperv.get_vm_by_ip(ip)
+            return vm['Name'] if vm else None
+        except Exception:
+            return None
 
-        for vm in vm_list:
-            if "ip_configured" in vm and vm["ip_configured"] == ip:
-                return vm["name"]
+    def get_running_vm_ip(self, name):
+        try:
+            return self.hyperv.get_ip_address(name)
+        except Exception:
+            return None
 
-        logger.warning(f"No running VM found matching IP '{ip}'.")
-        return None
-
-    def get_running_vm_ip(self, name: str) -> Optional[str]:
-        output = self._run_parallels_command("list", "-f", "-j").stdout
-        vm_list = json.loads(output)
-
-        for vm in vm_list:
-            if "name" in vm and vm["name"] == name:
-                return vm["ip_configured"]
-
-        logger.warning(f"No running VM found matching NAME '{name}'.")
-        return None
+    def get_vm_list(self):
+        try:
+            vms = self.hyperv.list_vms()
+            return [
+                {"ip": vm["Name"], "running": vm["Running"]}
+                for vm in vms
+                if vm["Name"] != self.template_vm_name
+            ]
+        except Exception:
+            return []
