@@ -66,7 +66,7 @@ class VMwareManager(VMManager):
                     self.template_vm_path,
                     new_vm_path,
                     full=True,
-                    clone_name=new_vm_name
+                    clone_name=new_vm_name,
                 )
 
             self.vmrun.start(new_vm_path, gui=False)
@@ -129,8 +129,7 @@ class VMwareManager(VMManager):
 
             running_vms = self.vmrun.list().splitlines()[1:]
             running_ips = [
-                os.path.basename(os.path.dirname(vm_path))
-                for vm_path in running_vms
+                os.path.basename(os.path.dirname(vm_path)) for vm_path in running_vms
             ]
 
             vm_list = []
@@ -161,11 +160,11 @@ class HyperVManager(VMManager):
                 if not is_running:
                     self.hyperv.start(new_vm_name)
                 return
-            
+
             self.hyperv.clone(
                 template_name=self.template_vm_name,
                 new_name=new_vm_name,
-                path=self.workdir
+                path=self.workdir,
             )
             self.hyperv.start(new_vm_name)
         except Exception:
@@ -193,7 +192,9 @@ class HyperVManager(VMManager):
     def get_running_vm_name(self, ip):
         try:
             vm = self.hyperv.get_vm_by_ip(ip)
-            return vm['Name'] if vm else None
+            if vm and vm["Name"] != self.template_vm_name:
+                return vm["Name"]
+            return None
         except Exception:
             return None
 

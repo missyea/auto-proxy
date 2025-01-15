@@ -50,7 +50,7 @@ class HyperVSDK:
         Copy-Item -Path '{template_vhdx}' -Destination '{new_vhdx}'
         $vs = Get-VMSwitch
         New-VM -Name '{new_name}' -NoVHD -MemoryStartupBytes 2GB -Generation 2 -SwitchName $vs[0].Name
-        Set-VM -Name '{new_name}' -ProcessorCount 2 -DynamicMemory -MemoryMinimumBytes 512MB -MemoryMaximumBytes 4GB
+        Set-VM -Name '{new_name}' -ProcessorCount 4 -DynamicMemory -MemoryMinimumBytes 512MB -MemoryMaximumBytes 4GB
         Add-VMHardDiskDrive -VMName '{new_name}' -Path '{new_vhdx}'
         Set-VMFirmware -VMName '{new_name}' -FirstBootDevice (Get-VMHardDiskDrive -VMName '{new_name}')
         """
