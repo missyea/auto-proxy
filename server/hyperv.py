@@ -35,11 +35,8 @@ class HyperVSDK:
             cmd += " -Force"
         self._run_command(cmd)
 
-    def reset(self, vm_name, force=False):
-        cmd = "Restart-VM -Name '" + vm_name + "'"
-        if force:
-            cmd += " -Force"
-        self._run_command(cmd)
+    def reset(self, vm_name):
+        self._run_command(f"Restart-VM -Name '{vm_name}' -Force")
 
     def clone(self, template_name, new_name, path):
         template_vhdx = path + "\\" + template_name + ".vhdx"
@@ -132,3 +129,27 @@ class HyperVSDK:
                 if current_ip and current_ip == ip_address:
                     return vm
         return None
+
+    def rename_vm(self, old_name, new_name):
+        try:
+            cmd = f"Rename-VM -Name '{old_name}' -NewName '{new_name}'"
+            self._run_command(cmd)
+        except Exception:
+            raise
+
+    def rename_vhdx(self, vm_name, old_path, new_path):
+        try:
+            cmd = f"""
+            Move-Item -Path '{old_path}' -Destination '{new_path}' -Force
+            Get-VM -Name '{vm_name}' | Get-VMHardDiskDrive | Set-VMHardDiskDrive -Path '{new_path}'
+            """
+            self._run_command(cmd)
+        except Exception:
+            raise
+
+    def resolve_dns(self, host):
+        try:
+            cmd = f"(Resolve-DnsName -Name {host} -Type A).IPAddress"
+            self._run_command(cmd)
+        except Exception:
+            return None

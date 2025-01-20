@@ -151,22 +151,38 @@ class HyperVManager(VMManager):
         self.template_vm_name = TEMPLATE_VM_NAME
         self.hyperv = HyperVSDK()
 
-    def clone_vm(self, ip):
-        new_vm_name = ip
+    def clone_vm(self, ip, last_ip=None):
         try:
-            vm_exists = self.hyperv.exists(new_vm_name)
+            if last_ip and last_ip != ip:
+                try:
+                    if self.hyperv.exists(last_ip):
+                        if self.hyperv.is_running(last_ip):
+                            self.hyperv.stop(last_ip)
+
+                        old_path = os.path.join(self.workdir, f"{last_ip}.vhdx")
+                        new_path = os.path.join(self.workdir, f"{ip}.vhdx")
+
+                        self.hyperv.rename_vhdx(last_ip, old_path, new_path)
+                        self.hyperv.rename_vm(last_ip, ip)
+
+                        self.hyperv.start(ip)
+                        return
+                except Exception:
+                    raise
+
+            vm_exists = self.hyperv.exists(ip)
             if vm_exists:
-                is_running = self.hyperv.is_running(new_vm_name)
-                if not is_running:
-                    self.hyperv.start(new_vm_name)
+                if not self.hyperv.is_running(ip):
+                    self.hyperv.start(ip)
                 return
 
             self.hyperv.clone(
                 template_name=self.template_vm_name,
-                new_name=new_vm_name,
+                new_name=ip,
                 path=self.workdir,
             )
-            self.hyperv.start(new_vm_name)
+            self.hyperv.start(ip)
+
         except Exception:
             raise
 

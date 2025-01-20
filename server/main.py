@@ -28,12 +28,17 @@ CORS(app)
 @app.route("/set_vm", methods=["POST"])
 def set_vm():
     received_ip = request.form.get("ip")
+    last_ip = request.form.get("last_ip")
+    host = request.form.get("host")
+
     if not received_ip:
         logger.warning("No IP address provided in request")
         return jsonify({"error": "IP address is required"}), 422
 
     try:
-        vm_manager.clone_vm(received_ip)
+        vm_manager.clone_vm(received_ip, last_ip=last_ip)
+        if host:
+            vm_manager.hyperv.resolve_dns(host)
         return jsonify({"status": 200})
     except Exception as e:
         logger.error(f"Failed to create VM: {str(e)}")

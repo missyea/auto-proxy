@@ -15,7 +15,7 @@ import (
 
 const (
 	settingsPath = `Software\Microsoft\Windows\CurrentVersion\Internet Settings`
-	maxAttempts  = 60
+	maxAttempts  = 10
 	delay        = 5 * time.Second
 )
 
@@ -117,60 +117,36 @@ func updateProxyEnable() error {
 		return fmt.Errorf("error getting ProxyEnable: %v", err)
 	}
 
-	switch v := proxyEnable.(type) {
-	case uint32:
-		if v != 1 {
-			if err := setRegistryValue("ProxyEnable", uint32(1)); err != nil {
-				return fmt.Errorf("error setting ProxyEnable: %v", err)
-			}
-			fmt.Println("ProxyEnable set to 1")
-		} else {
-			fmt.Println("ProxyEnable already set to 1")
-		}
-	case string:
-		if v != "1" {
-			if err := setRegistryValue("ProxyEnable", uint32(1)); err != nil {
-				return fmt.Errorf("error setting ProxyEnable: %v", err)
-			}
-			fmt.Println("ProxyEnable set to 1")
-		} else {
-			fmt.Println("ProxyEnable already set to 1")
-		}
-	default:
-		fmt.Printf("Unexpected ProxyEnable type: %T. Setting to 1.\n", v)
-		if err := setRegistryValue("ProxyEnable", uint32(1)); err != nil {
-			return fmt.Errorf("error setting ProxyEnable: %v", err)
-		}
-	}
+    if v, ok := proxyEnable.(uint32); ok && v == 1 {
+        fmt.Println("ProxyEnable already set to 1")
+        return nil
+    }
+    if v, ok := proxyEnable.(string); ok && v == "1" {
+        fmt.Println("ProxyEnable already set to 1")
+        return nil
+    }
 
-	return nil
+    if err := setRegistryValue("ProxyEnable", uint32(1)); err != nil {
+        return fmt.Errorf("error setting ProxyEnable: %v", err)
+    }
+
+    fmt.Println("ProxyEnable set to 1")
+    return nil
 }
 
 func updateProxyServer() error {
-	currentProxy, err := getRegistryValue("ProxyServer")
-	if err != nil {
-		return fmt.Errorf("error getting ProxyServer: %v", err)
-	}
+    ip, err := getIPFromAPI()
+    if err != nil {
+        return fmt.Errorf("failed to get new IP: %v", err)
+    }
 
-	currentProxyStr, ok := currentProxy.(string)
-	if !ok || currentProxyStr == "" || strings.HasPrefix(currentProxyStr, "127.0.0.1") {
-		ip, err := getIPFromAPI()
-		if err != nil {
-			return fmt.Errorf("failed to get new IP: %v", err)
-		}
+    newProxyServer := fmt.Sprintf("%s:8081", ip)
+    if err := setRegistryValue("ProxyServer", newProxyServer); err != nil {
+        return fmt.Errorf("error setting ProxyServer: %v", err)
+    }
 
-		newProxyServer := fmt.Sprintf("%s:8081", ip)
-		err = setRegistryValue("ProxyServer", newProxyServer)
-		if err != nil {
-			return fmt.Errorf("error setting ProxyServer: %v", err)
-		}
-
-		fmt.Printf("ProxyServer updated to %s\n", newProxyServer)
-	} else {
-		fmt.Printf("ProxyServer is already set to a non-localhost value: %s\n", currentProxyStr)
-	}
-
-	return nil
+    fmt.Printf("ProxyServer updated to %s\n", newProxyServer)
+    return nil
 }
 
 func main() {
